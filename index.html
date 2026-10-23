@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TCG对局战报记录器 1.0</title>
+    <title>TCG 对局/战报记录器 1.01</title>
     <link rel="manifest" href="manifest.json">
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -113,17 +113,17 @@
                             <input type="radio" v-model="form.matchType" value="Time" class="hidden"> <span class="text-sm">BO1</span>
                         </label>
                         <label class="flex items-center space-x-1 cursor-pointer bg-gray-50 px-3 py-1.5 rounded-lg border hover:bg-gray-100 transition-colors" :class="{'border-blue-500 bg-blue-50 text-blue-700 font-bold': form.matchType === 'Draw'}">
-                            <input type="radio" v-model="form.matchType" value="Draw" class="hidden"> <span class="text-sm">平局(Draw)</span>
+                            <input type="radio" v-model="form.matchType" value="Draw" class="hidden"> <span class="text-sm">平局</span>
                         </label>
                         <label class="flex items-center space-x-1 cursor-pointer bg-gray-50 px-3 py-1.5 rounded-lg border hover:bg-gray-100 transition-colors" :class="{'border-blue-500 bg-blue-50 text-blue-700 font-bold': form.matchType === 'Double'}">
-                            <input type="radio" v-model="form.matchType" value="Double" class="hidden"> <span class="text-sm">双败(Double)</span>
+                            <input type="radio" v-model="form.matchType" value="Double" class="hidden"> <span class="text-sm">双败</span>
                         </label>
                     </div>
                 </div>
 
                 <!-- Match 详情 -->
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">单局详情 (打勾表示先攻/胜利)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">单局详情 (打勾表示先攻/胜利，没勾表示后攻/失败)</label>
                     
                     <!-- G1 -->
                     <div class="flex items-center space-x-4 mb-2 bg-gray-50 p-2.5 rounded-xl border" :class="{'opacity-50': form.games[0].isVoid}">
@@ -194,14 +194,14 @@
                 
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label class="block text-xs text-gray-500 mb-1">查看我方卡组</label>
+                        <label class="block text-xs text-gray-500 mb-1">选择我方卡组</label>
                         <select v-model="statFilter.myDeck" class="w-full border rounded p-2 text-sm bg-gray-50 outline-none focus:ring focus:ring-blue-200">
                             <option value="All">全部卡组</option>
                             <option v-for="d in uniqueMyDecks" :key="d" :value="d">{{ d }}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-500 mb-1">查看对局卡组</label>
+                        <label class="block text-xs text-gray-500 mb-1">选择对手卡组</label>
                         <select v-model="statFilter.oppDeck" class="w-full border rounded p-2 text-sm bg-gray-50 outline-none focus:ring focus:ring-blue-200">
                             <option value="All">全部对手</option>
                             <option v-for="d in uniqueOppDecksContextual" :key="d" :value="d">{{ d }}</option>
@@ -211,7 +211,7 @@
 
                 <div class="grid grid-cols-3 gap-2 mb-4">
                     <div class="bg-blue-50 border border-blue-100 p-2.5 rounded-xl text-center flex flex-col justify-center">
-                        <div class="text-xs text-blue-700 font-bold">有效 Match 胜率</div>
+                        <div class="text-xs text-blue-700 font-bold">Match胜率</div>
                         <div class="text-xl font-black text-blue-900 leading-tight">{{ currentStats.matchRate }}%</div>
                         <div class="text-[10px] text-gray-500">{{ currentStats.matchWins }}胜 / {{ currentStats.matchTotal }}场</div>
                     </div>
