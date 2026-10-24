@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TCG 对局/战报记录器 1.01</title>
+    <title>TCG 对局/战报记录器 1.02</title>
     <link rel="manifest" href="manifest.json">
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -123,54 +123,66 @@
 
                 <!-- Match 详情 -->
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">单局详情 (打勾表示先攻/胜利，没勾表示后攻/失败)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">单局详情 (选择先后攻与胜负)</label>
                     
                     <!-- G1 -->
-                    <div class="flex items-center space-x-4 mb-2 bg-gray-50 p-2.5 rounded-xl border" :class="{'opacity-50': form.games[0].isVoid}">
+                    <div class="flex items-center space-x-3 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-opacity" :class="{'opacity-50': form.games[0].isVoid}">
                         <span class="font-bold text-gray-600 w-6">G1</span>
-                        <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" v-model="form.games[0].isFirst" :disabled="form.games[0].isVoid" class="w-4 h-4 text-blue-600 rounded"> <span>先攻</span>
-                        </label>
-                        <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" v-model="form.games[0].isWin" :disabled="form.games[0].isVoid" class="w-4 h-4 text-green-600 rounded"> <span class="text-green-600 font-bold">获胜</span>
-                        </label>
+                        <!-- 先后攻 Toggle -->
+                        <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                            <button type="button" @click="form.games[0].isFirst = true" :disabled="form.games[0].isVoid" :class="form.games[0].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-16 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">先攻</button>
+                            <button type="button" @click="form.games[0].isFirst = false" :disabled="form.games[0].isVoid" :class="!form.games[0].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-16 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">后攻</button>
+                        </div>
+                        <!-- 胜负 Toggle -->
+                        <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                            <button type="button" @click="form.games[0].isWin = true" :disabled="form.games[0].isVoid" :class="form.games[0].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-14 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">胜</button>
+                            <button type="button" @click="form.games[0].isWin = false" :disabled="form.games[0].isVoid" :class="!form.games[0].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-14 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">负</button>
+                        </div>
                         <label v-if="form.matchType === 'Double'" class="flex items-center space-x-1 cursor-pointer ml-auto">
-                            <input type="checkbox" v-model="form.games[0].isVoid" class="w-4 h-4 text-red-500 rounded"> <span class="text-red-500 text-xs font-bold">未完成</span>
+                            <input type="checkbox" v-model="form.games[0].isVoid" @change="handleVoidChange(0)" class="w-4 h-4 text-red-500 rounded"> <span class="text-red-500 text-xs font-bold">未完成</span>
                         </label>
                     </div>
 
                     <!-- G2 -->
-                    <div v-if="form.matchType !== 'Time'" class="flex items-center space-x-4 mb-2 bg-gray-50 p-2.5 rounded-xl border" :class="{'opacity-50': form.games[1].isVoid}">
+                    <div v-if="form.matchType !== 'Time'" class="flex items-center space-x-3 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-opacity" :class="{'opacity-50': form.games[1].isVoid}">
                         <span class="font-bold text-gray-600 w-6">G2</span>
-                        <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" v-model="form.games[1].isFirst" :disabled="form.games[1].isVoid" class="w-4 h-4 text-blue-600 rounded"> <span>先攻</span>
-                        </label>
-                        <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" v-model="form.games[1].isWin" :disabled="form.games[1].isVoid" class="w-4 h-4 text-green-600 rounded"> <span class="text-green-600 font-bold">获胜</span>
-                        </label>
+                        <!-- 先后攻 Toggle -->
+                        <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                            <button type="button" @click="form.games[1].isFirst = true" :disabled="form.games[1].isVoid" :class="form.games[1].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-16 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">先攻</button>
+                            <button type="button" @click="form.games[1].isFirst = false" :disabled="form.games[1].isVoid" :class="!form.games[1].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-16 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">后攻</button>
+                        </div>
+                        <!-- 胜负 Toggle -->
+                        <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                            <button type="button" @click="form.games[1].isWin = true" :disabled="form.games[1].isVoid" :class="form.games[1].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-14 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">胜</button>
+                            <button type="button" @click="form.games[1].isWin = false" :disabled="form.games[1].isVoid" :class="!form.games[1].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-14 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">负</button>
+                        </div>
                         <label v-if="form.matchType === 'Double'" class="flex items-center space-x-1 cursor-pointer ml-auto">
-                            <input type="checkbox" v-model="form.games[1].isVoid" class="w-4 h-4 text-red-500 rounded"> <span class="text-red-500 text-xs font-bold">未完成</span>
+                            <input type="checkbox" v-model="form.games[1].isVoid" @change="handleVoidChange(1)" class="w-4 h-4 text-red-500 rounded"> <span class="text-red-500 text-xs font-bold">未完成</span>
                         </label>
                     </div>
-                    <div v-else class="flex items-center space-x-4 mb-2 bg-gray-200 p-2.5 rounded-xl border opacity-50">
+                    <div v-else class="flex items-center space-x-3 mb-2 bg-gray-200 p-2.5 rounded-xl border opacity-50">
                         <span class="font-bold text-gray-600 w-6">G2</span>
-                        <span class="text-sm text-gray-500 italic">BO1赛制，无需记录</span>
+                        <span class="text-sm text-gray-500 italic">BO1</span>
                     </div>
 
                     <!-- G3 -->
-                    <div v-if="needG3" class="flex items-center space-x-4 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-opacity" :class="{'opacity-50': form.games[2].isVoid}">
+                    <div v-if="needG3" class="flex items-center space-x-3 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-opacity" :class="{'opacity-50': form.games[2].isVoid}">
                         <span class="font-bold text-gray-600 w-6">G3</span>
-                        <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" v-model="form.games[2].isFirst" :disabled="form.games[2].isVoid" class="w-4 h-4 text-blue-600 rounded"> <span>先攻</span>
-                        </label>
-                        <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" v-model="form.games[2].isWin" :disabled="form.games[2].isVoid" class="w-4 h-4 text-green-600 rounded"> <span class="text-green-600 font-bold">获胜</span>
-                        </label>
+                        <!-- 先后攻 Toggle -->
+                        <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                            <button type="button" @click="form.games[2].isFirst = true" :disabled="form.games[2].isVoid" :class="form.games[2].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-16 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">先攻</button>
+                            <button type="button" @click="form.games[2].isFirst = false" :disabled="form.games[2].isVoid" :class="!form.games[2].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-16 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">后攻</button>
+                        </div>
+                        <!-- 胜负 Toggle -->
+                        <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                            <button type="button" @click="form.games[2].isWin = true" :disabled="form.games[2].isVoid" :class="form.games[2].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-14 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">胜</button>
+                            <button type="button" @click="form.games[2].isWin = false" :disabled="form.games[2].isVoid" :class="!form.games[2].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-14 whitespace-nowrap text-center disabled:opacity-50 disabled:cursor-not-allowed">负</button>
+                        </div>
                         <label v-if="form.matchType === 'Double'" class="flex items-center space-x-1 cursor-pointer ml-auto">
-                            <input type="checkbox" v-model="form.games[2].isVoid" class="w-4 h-4 text-red-500 rounded"> <span class="text-red-500 text-xs font-bold">未完成</span>
+                            <input type="checkbox" v-model="form.games[2].isVoid" @change="handleVoidChange(2)" class="w-4 h-4 text-red-500 rounded"> <span class="text-red-500 text-xs font-bold">未完成</span>
                         </label>
                     </div>
-                    <div v-else class="flex items-center space-x-4 mb-2 bg-gray-200 p-2.5 rounded-xl border opacity-50">
+                    <div v-else class="flex items-center space-x-3 mb-2 bg-gray-200 p-2.5 rounded-xl border opacity-50">
                         <span class="font-bold text-gray-600 w-6">G3</span>
                         <span class="text-sm text-gray-500 italic">{{ g3ReasonText }}</span>
                     </div>
@@ -646,12 +658,23 @@
                         }
                         
                         if (parsedRecords.length === 0) {
-                            // Fresh start
-                            const gId = generateId();
-                            const fId = generateId();
+                            // Fresh start using actual provided JSON data
+                            const gId = 'ip2v12mxd';
+                            const fId = '69i5l6agu';
                             gamesList.value = [{ id: gId, name: '游戏王 OCG' }];
                             formatsList.value = [{ id: fId, gameId: gId, name: '当前环境' }];
-                            records.value = [];
+                            records.value = [
+                              {"id":1792784090608,"date":"2026/10/24 03:34:50","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":false,"tournamentName":"","tournamentRound":"R1","myDeck":"码丽丝","opponentDeck":"雷盟","notes":"","matchType":"Normal","games":[{"isFirst":false,"isWin":true,"isVoid":false},{"isFirst":false,"isWin":true,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false}]},
+                              {"id":1792784186870,"date":"2026/10/24 03:36:26","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":false,"tournamentName":"","tournamentRound":"R1","myDeck":"码丽丝","opponentDeck":"召唤师","notes":"g1超时","matchType":"Normal","games":[{"isFirst":true,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":true,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false}]},
+                              {"id":1792784197735,"date":"2026/10/24 03:36:37","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":false,"tournamentName":"","tournamentRound":"R1","myDeck":"码丽丝","opponentDeck":"码丽丝","notes":"","matchType":"Normal","games":[{"isFirst":true,"isWin":true,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":true,"isVoid":false}]},
+                              {"id":1792784204391,"date":"2026/10/24 03:36:44","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":false,"tournamentName":"","tournamentRound":"R1","myDeck":"码丽丝","opponentDeck":"烙印","notes":"","matchType":"Normal","games":[{"isFirst":true,"isWin":true,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":true,"isVoid":false}]},
+                              {"id":1792784242828,"date":"2026/10/24 03:37:22","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":false,"tournamentName":"","tournamentRound":"R1","myDeck":"码丽丝","opponentDeck":"盈彩月夜","notes":"g1超时、白后忘盖陷阱；g2超时","matchType":"Normal","games":[{"isFirst":false,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":false,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false}]},
+                              {"id":1792824345731,"date":"2026/10/24 14:45:45","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":true,"tournamentName":"绿野积分赛","tournamentRound":"R1","myDeck":"码丽丝","opponentDeck":"耀圣","notes":"","matchType":"Normal","games":[{"isFirst":false,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":false,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false}]},
+                              {"id":1792829557530,"date":"2026/10/24 16:12:37","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":true,"tournamentName":"绿野积分赛","tournamentRound":"R2","myDeck":"码丽丝","opponentDeck":"60混沌混轴","notes":"","matchType":"Normal","games":[{"isFirst":true,"isWin":true,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":true,"isVoid":false}]},
+                              {"id":1792840089835,"date":"2026/10/24 19:08:09","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":true,"tournamentName":"绿野积分赛","tournamentRound":"R4","myDeck":"码丽丝","opponentDeck":"水机列车","notes":"","matchType":"Normal","games":[{"isFirst":false,"isWin":true,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":true,"isVoid":false}]},
+                              {"id":1792840103261,"date":"2026/10/24 19:08:23","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":true,"tournamentName":"绿野积分赛","tournamentRound":"R5","myDeck":"码丽丝","opponentDeck":"魔女术","notes":"","matchType":"Normal","games":[{"isFirst":false,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":true,"isVoid":false},{"isFirst":false,"isWin":true,"isVoid":false}]},
+                              {"id":1792848121061,"date":"2026/10/24 21:22:01","gameId":"ip2v12mxd","formatId":"69i5l6agu","isTournament":false,"tournamentName":"","tournamentRound":"R1","myDeck":"码丽丝","opponentDeck":"耀圣","notes":"","matchType":"Normal","games":[{"isFirst":true,"isWin":false,"isVoid":false},{"isFirst":true,"isWin":false,"isVoid":false},{"isFirst":false,"isWin":false,"isVoid":false}]}
+                            ];
                         } else {
                             // Migrate existing data
                             const uniqueGameNames = [...new Set(parsedRecords.map(r => r.gameCategory || '默认游戏'))];
@@ -727,10 +750,19 @@
                     return form.value.games[0].isWin !== form.value.games[1].isWin;
                 });
                 const g3ReasonText = computed(() => {
-                    if (form.value.matchType === 'Time') return 'BO1局无需G3';
+                    if (form.value.matchType === 'Time') return 'BO1';
                     if (form.value.matchType === 'Draw') return '平局无需G3';
                     return '前两局已分出胜负，无需G3';
                 });
+
+                // 处理双败时的未完成传播逻辑
+                const handleVoidChange = (index) => {
+                    if (form.value.matchType === 'Double' && form.value.games[index].isVoid) {
+                        for (let i = index + 1; i < 3; i++) {
+                            form.value.games[i].isVoid = true;
+                        }
+                    }
+                };
 
                 const getValidGames = (record) => {
                     let valid = [];
@@ -928,9 +960,15 @@
                     categoriesCount.value = statArray.length;
 
                     const totalStats = calcStats(recs);
-                    statArray.unshift({ name: '总计', stats: totalStats });
+                    const recent20Stats = calcStats(recs.slice(-20)); // Calculate stats for the last 20 matches
 
-                    const displayArray = chartExpanded.value ? statArray : statArray.slice(0, 4);
+                    statArray.unshift(
+                        { name: '总计', stats: totalStats },
+                        { name: '最近20场', stats: recent20Stats }
+                    );
+
+                    // Changed the slice from 4 to 5 to show Total, Last 20, and top 3 opponents by default
+                    const displayArray = chartExpanded.value ? statArray : statArray.slice(0, 5);
                     chartHeight.value = displayArray.length * 60 + 40;
 
                     nextTick(() => {
@@ -1022,7 +1060,7 @@
                     currentStats, reversedRecords, needG3, g3ReasonText,
                     chartExpanded, chartHeight, categoriesCount, toggleChartExpand,
                     switchGame, switchFormat, openManager, addGame, addFormat, confirmDeleteGame, confirmDeleteFormat,
-                    startEdit, cancelEdit, saveEdit,
+                    startEdit, cancelEdit, saveEdit, handleVoidChange,
                     saveRecord, confirmDelete, exportData, importData, getDisplayGames, getMatchResultStyle,
                     closeModal, executeModalAction, toggleTournamentExpand
                 }
