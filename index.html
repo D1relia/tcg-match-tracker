@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TCG 对局/战报记录器 1.04</title>
+    <title>TCG 对局/战报记录器 1.08</title>
     <link rel="manifest" href="manifest.json">
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -53,43 +53,36 @@
         </div>
 
         <div class="px-2 md:px-4 space-y-5">
-            <!-- ================= 表单区域 (支持新增与编辑双模式) ================= -->
-            <div id="entryFormCard" class="bg-white p-4 rounded-xl shadow-sm border transition-all duration-300" :class="editingRecordId ? 'border-amber-400 ring-2 ring-amber-100 bg-amber-50/10' : 'border-gray-100'">
-                <h2 class="text-lg font-bold border-b pb-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-gray-800">
-                    <div class="flex items-center space-x-2">
-                        <span>{{ editingRecordId ? '✏️ 编辑对局记录' : '录入新对局 / 战报' }}</span>
-                        <span v-if="editingRecordId" class="text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold animate-pulse">正在修改历史记录</span>
-                    </div>
+            <!-- ================= 表单区域 (新增 / 编辑双模复用) ================= -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border transition-colors" :class="isEditing ? 'border-amber-400 bg-amber-50/20' : 'border-gray-100'">
+                <h2 class="text-lg font-bold border-b pb-2 mb-4 flex justify-between items-center text-gray-800">
+                    <span :class="isEditing ? 'text-amber-700' : ''">{{ isEditing ? '✏️ 编辑对局记录' : '录入新对局 / 战报' }}</span>
                     <label class="flex items-center space-x-1.5 cursor-pointer text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-200">
                         <input type="checkbox" v-model="form.isTournament" class="rounded text-indigo-600 focus:ring-indigo-500">
                         <span class="font-bold">计入赛事战报</span>
                     </label>
                 </h2>
 
-                <!-- 赛事专属填写区 (赛事名称 + 比赛日期 联合区分不同场次) -->
+                <!-- 赛事专属填写区 -->
                 <div v-if="form.isTournament" class="mb-4 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <div class="text-xs font-bold text-indigo-900 flex items-center space-x-1">
-                            <span>🏆</span>
-                            <span>赛事信息填写</span>
-                        </div>
-                        <span class="text-[11px] text-indigo-600/80">同名赛事按日期自动分开统计</span>
+                    <div class="text-xs font-bold text-indigo-900 flex items-center space-x-1">
+                        <span>🏆</span>
+                        <span>赛事信息填写</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">赛事名称 (新→旧)</label>
-                            <input v-model="form.tournamentName" list="tournamentList" type="text" class="w-full border rounded-lg p-1.5 text-sm bg-white outline-none focus:ring focus:ring-indigo-200" placeholder="例：周末积分赛">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">赛事名称</label>
+                            <input v-model="form.tournamentName" list="tournamentList" type="text" class="w-full border rounded p-1.5 text-sm bg-white outline-none focus:ring focus:ring-indigo-200" placeholder="例：HelloTCG 积分赛">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">比赛日期 (标识场次)</label>
-                            <input v-model="form.tournamentDate" type="date" class="w-full border rounded-lg p-1.5 text-sm bg-white outline-none focus:ring focus:ring-indigo-200">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">比赛日期</label>
+                            <input v-model="form.tournamentDate" type="date" class="w-full border rounded p-1.5 text-sm bg-white outline-none focus:ring focus:ring-indigo-200">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">当前轮次 (自由填写)</label>
-                            <input v-model="form.tournamentRound" type="text" class="w-full border rounded-lg p-1.5 text-sm bg-white outline-none focus:ring focus:ring-indigo-200" placeholder="例：R1 / Top8">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">当前轮次</label>
+                            <input v-model="form.tournamentRound" type="text" class="w-full border rounded p-1.5 text-sm bg-white outline-none focus:ring focus:ring-indigo-200" placeholder="例：R1 / 八强">
                         </div>
                     </div>
-                    <!-- 仅提供从新到旧排序的赛事名称，不覆盖用户当前选择的日期 -->
                     <datalist id="tournamentList">
                         <option v-for="t in uniqueTournaments" :key="t" :value="t"></option>
                     </datalist>
@@ -128,75 +121,81 @@
                     </div>
                 </div>
 
-                <!-- Match 详情 (响应式防溢出) -->
+                <!-- Match 详情 -->
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">单局详情 (选择先后攻与胜负)</label>
                     
                     <!-- G1 -->
-                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-all" :class="{'bg-gray-100/80': form.games[0].isVoid}">
-                        <div class="flex items-center space-x-2 sm:space-x-3" :class="{'opacity-40': form.games[0].isVoid}">
-                            <span class="font-bold text-gray-600 w-5 text-sm">G1</span>
+                    <div class="flex flex-wrap items-center justify-between gap-y-2 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-opacity" :class="{'opacity-50': form.games[0].isVoid}">
+                        <div class="flex items-center space-x-3">
+                            <span class="font-bold text-gray-600 w-6">G1</span>
                             <!-- 先后攻 Toggle -->
-                            <div class="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
-                                <button type="button" @click="form.games[0].isFirst = true" :disabled="form.games[0].isVoid" :class="form.games[0].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-14 whitespace-nowrap text-center disabled:cursor-not-allowed">先攻</button>
-                                <button type="button" @click="form.games[0].isFirst = false" :disabled="form.games[0].isVoid" :class="!form.games[0].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-14 whitespace-nowrap text-center disabled:cursor-not-allowed">后攻</button>
+                            <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                                <button type="button" @click="form.games[0].isFirst = true" :disabled="form.games[0].isVoid" :class="form.games[0].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs transition-colors w-14 text-center whitespace-nowrap disabled:opacity-50">先攻</button>
+                                <button type="button" @click="form.games[0].isFirst = false" :disabled="form.games[0].isVoid" :class="!form.games[0].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs border-l border-gray-200 transition-colors w-14 text-center whitespace-nowrap disabled:opacity-50">后攻</button>
                             </div>
                             <!-- 胜负 Toggle -->
-                            <div class="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
-                                <button type="button" @click="form.games[0].isWin = true" :disabled="form.games[0].isVoid" :class="form.games[0].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-12 whitespace-nowrap text-center disabled:cursor-not-allowed">胜</button>
-                                <button type="button" @click="form.games[0].isWin = false" :disabled="form.games[0].isVoid" :class="!form.games[0].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-12 whitespace-nowrap text-center disabled:cursor-not-allowed">负</button>
+                            <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                                <button type="button" @click="form.games[0].isWin = true" :disabled="form.games[0].isVoid" :class="form.games[0].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs transition-colors w-12 text-center whitespace-nowrap disabled:opacity-50">胜</button>
+                                <button type="button" @click="form.games[0].isWin = false" :disabled="form.games[0].isVoid" :class="!form.games[0].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs border-l border-gray-200 transition-colors w-12 text-center whitespace-nowrap disabled:opacity-50">负</button>
                             </div>
                         </div>
-                        <button v-if="form.matchType === 'Double'" type="button" @click="toggleVoid(0)" :class="form.games[0].isVoid ? 'bg-red-500 text-white border-red-500 font-bold shadow-sm' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-100'" class="px-2.5 py-1 rounded-full text-xs border transition-all whitespace-nowrap flex items-center space-x-1 ml-auto">
-                            <span>{{ form.games[0].isVoid ? '✓ 未完成' : '未完成' }}</span>
-                        </button>
+                        <div v-if="form.matchType === 'Double'" class="flex items-center space-x-1">
+                            <button type="button" @click="toggleVoid(0)" class="px-2.5 py-1 rounded text-xs font-bold border transition-all whitespace-nowrap" :class="form.games[0].isVoid ? 'bg-red-500 text-white border-red-500 shadow-sm' : 'bg-white text-red-500 border-red-200 hover:bg-red-50'">
+                                {{ form.games[0].isVoid ? '✓ 未完成' : '未完成' }}
+                            </button>
+                        </div>
                     </div>
 
                     <!-- G2 -->
-                    <div v-if="form.matchType !== 'Time'" class="flex flex-wrap items-center justify-between gap-2 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-all" :class="{'bg-gray-100/80': form.games[1].isVoid}">
-                        <div class="flex items-center space-x-2 sm:space-x-3" :class="{'opacity-40': form.games[1].isVoid}">
-                            <span class="font-bold text-gray-600 w-5 text-sm">G2</span>
+                    <div v-if="form.matchType !== 'Time'" class="flex flex-wrap items-center justify-between gap-y-2 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-opacity" :class="{'opacity-50': form.games[1].isVoid}">
+                        <div class="flex items-center space-x-3">
+                            <span class="font-bold text-gray-600 w-6">G2</span>
                             <!-- 先后攻 Toggle -->
-                            <div class="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
-                                <button type="button" @click="form.games[1].isFirst = true" :disabled="form.games[1].isVoid" :class="form.games[1].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-14 whitespace-nowrap text-center disabled:cursor-not-allowed">先攻</button>
-                                <button type="button" @click="form.games[1].isFirst = false" :disabled="form.games[1].isVoid" :class="!form.games[1].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-14 whitespace-nowrap text-center disabled:cursor-not-allowed">后攻</button>
+                            <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                                <button type="button" @click="form.games[1].isFirst = true" :disabled="form.games[1].isVoid" :class="form.games[1].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs transition-colors w-14 text-center whitespace-nowrap disabled:opacity-50">先攻</button>
+                                <button type="button" @click="form.games[1].isFirst = false" :disabled="form.games[1].isVoid" :class="!form.games[1].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs border-l border-gray-200 transition-colors w-14 text-center whitespace-nowrap disabled:opacity-50">后攻</button>
                             </div>
                             <!-- 胜负 Toggle -->
-                            <div class="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
-                                <button type="button" @click="form.games[1].isWin = true" :disabled="form.games[1].isVoid" :class="form.games[1].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-12 whitespace-nowrap text-center disabled:cursor-not-allowed">胜</button>
-                                <button type="button" @click="form.games[1].isWin = false" :disabled="form.games[1].isVoid" :class="!form.games[1].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-12 whitespace-nowrap text-center disabled:cursor-not-allowed">负</button>
+                            <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                                <button type="button" @click="form.games[1].isWin = true" :disabled="form.games[1].isVoid" :class="form.games[1].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs transition-colors w-12 text-center whitespace-nowrap disabled:opacity-50">胜</button>
+                                <button type="button" @click="form.games[1].isWin = false" :disabled="form.games[1].isVoid" :class="!form.games[1].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs border-l border-gray-200 transition-colors w-12 text-center whitespace-nowrap disabled:opacity-50">负</button>
                             </div>
                         </div>
-                        <button v-if="form.matchType === 'Double'" type="button" @click="toggleVoid(1)" :class="form.games[1].isVoid ? 'bg-red-500 text-white border-red-500 font-bold shadow-sm' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-100'" class="px-2.5 py-1 rounded-full text-xs border transition-all whitespace-nowrap flex items-center space-x-1 ml-auto">
-                            <span>{{ form.games[1].isVoid ? '✓ 未完成' : '未完成' }}</span>
-                        </button>
+                        <div v-if="form.matchType === 'Double'" class="flex items-center space-x-1">
+                            <button type="button" @click="toggleVoid(1)" class="px-2.5 py-1 rounded text-xs font-bold border transition-all whitespace-nowrap" :class="form.games[1].isVoid ? 'bg-red-500 text-white border-red-500 shadow-sm' : 'bg-white text-red-500 border-red-200 hover:bg-red-50'">
+                                {{ form.games[1].isVoid ? '✓ 未完成' : '未完成' }}
+                            </button>
+                        </div>
                     </div>
                     <div v-else class="flex items-center space-x-3 mb-2 bg-gray-200 p-2.5 rounded-xl border opacity-50">
-                        <span class="font-bold text-gray-600 w-5 text-sm">G2</span>
-                        <span class="text-sm text-gray-500 italic">BO1赛制，无需记录</span>
+                        <span class="font-bold text-gray-600 w-6">G2</span>
+                        <span class="text-sm text-gray-500 italic">BO1</span>
                     </div>
 
                     <!-- G3 -->
-                    <div v-if="needG3" class="flex flex-wrap items-center justify-between gap-2 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-all" :class="{'bg-gray-100/80': form.games[2].isVoid}">
-                        <div class="flex items-center space-x-2 sm:space-x-3" :class="{'opacity-40': form.games[2].isVoid}">
-                            <span class="font-bold text-gray-600 w-5 text-sm">G3</span>
+                    <div v-if="needG3" class="flex flex-wrap items-center justify-between gap-y-2 mb-2 bg-gray-50 p-2.5 rounded-xl border transition-opacity" :class="{'opacity-50': form.games[2].isVoid}">
+                        <div class="flex items-center space-x-3">
+                            <span class="font-bold text-gray-600 w-6">G3</span>
                             <!-- 先后攻 Toggle -->
-                            <div class="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
-                                <button type="button" @click="form.games[2].isFirst = true" :disabled="form.games[2].isVoid" :class="form.games[2].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-14 whitespace-nowrap text-center disabled:cursor-not-allowed">先攻</button>
-                                <button type="button" @click="form.games[2].isFirst = false" :disabled="form.games[2].isVoid" :class="!form.games[2].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-14 whitespace-nowrap text-center disabled:cursor-not-allowed">后攻</button>
+                            <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                                <button type="button" @click="form.games[2].isFirst = true" :disabled="form.games[2].isVoid" :class="form.games[2].isFirst ? 'bg-blue-600 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs transition-colors w-14 text-center whitespace-nowrap disabled:opacity-50">先攻</button>
+                                <button type="button" @click="form.games[2].isFirst = false" :disabled="form.games[2].isVoid" :class="!form.games[2].isFirst ? 'bg-orange-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs border-l border-gray-200 transition-colors w-14 text-center whitespace-nowrap disabled:opacity-50">后攻</button>
                             </div>
                             <!-- 胜负 Toggle -->
-                            <div class="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
-                                <button type="button" @click="form.games[2].isWin = true" :disabled="form.games[2].isVoid" :class="form.games[2].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs transition-colors w-12 whitespace-nowrap text-center disabled:cursor-not-allowed">胜</button>
-                                <button type="button" @click="form.games[2].isWin = false" :disabled="form.games[2].isVoid" :class="!form.games[2].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="py-1 text-xs border-l border-gray-200 transition-colors w-12 whitespace-nowrap text-center disabled:cursor-not-allowed">负</button>
+                            <div class="flex rounded-md border border-gray-200 overflow-hidden shadow-sm flex-shrink-0">
+                                <button type="button" @click="form.games[2].isWin = true" :disabled="form.games[2].isVoid" :class="form.games[2].isWin ? 'bg-green-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs transition-colors w-12 text-center whitespace-nowrap disabled:opacity-50">胜</button>
+                                <button type="button" @click="form.games[2].isWin = false" :disabled="form.games[2].isVoid" :class="!form.games[2].isWin ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-1 text-xs border-l border-gray-200 transition-colors w-12 text-center whitespace-nowrap disabled:opacity-50">负</button>
                             </div>
                         </div>
-                        <button v-if="form.matchType === 'Double'" type="button" @click="toggleVoid(2)" :class="form.games[2].isVoid ? 'bg-red-500 text-white border-red-500 font-bold shadow-sm' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-100'" class="px-2.5 py-1 rounded-full text-xs border transition-all whitespace-nowrap flex items-center space-x-1 ml-auto">
-                            <span>{{ form.games[2].isVoid ? '✓ 未完成' : '未完成' }}</span>
-                        </button>
+                        <div v-if="form.matchType === 'Double'" class="flex items-center space-x-1">
+                            <button type="button" @click="toggleVoid(2)" class="px-2.5 py-1 rounded text-xs font-bold border transition-all whitespace-nowrap" :class="form.games[2].isVoid ? 'bg-red-500 text-white border-red-500 shadow-sm' : 'bg-white text-red-500 border-red-200 hover:bg-red-50'">
+                                {{ form.games[2].isVoid ? '✓ 未完成' : '未完成' }}
+                            </button>
+                        </div>
                     </div>
                     <div v-else class="flex items-center space-x-3 mb-2 bg-gray-200 p-2.5 rounded-xl border opacity-50">
-                        <span class="font-bold text-gray-600 w-5 text-sm">G3</span>
+                        <span class="font-bold text-gray-600 w-6">G3</span>
                         <span class="text-sm text-gray-500 italic">{{ g3ReasonText }}</span>
                     </div>
                 </div>
@@ -206,12 +205,11 @@
                     <textarea v-model="form.notes" class="mt-1 w-full border rounded p-2.5 text-sm focus:ring focus:ring-blue-200 outline-none bg-gray-50 focus:bg-white" rows="2" placeholder="Side局调度、关键失误等..."></textarea>
                 </div>
 
-                <!-- 提交与取消按钮组 -->
-                <div class="flex space-x-3">
-                    <button @click="saveRecord" class="flex-1 text-white font-bold py-3 rounded-xl transition shadow-md active:scale-[0.98]" :class="editingRecordId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'">
-                        {{ editingRecordId ? '保存修改' : '保存对局记录' }}
+                <div class="flex space-x-2">
+                    <button @click="saveRecord" class="flex-1 font-bold py-3 rounded-xl transition shadow-md active:scale-[0.98]" :class="isEditing ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'">
+                        {{ isEditing ? '保存修改' : '保存对局记录' }}
                     </button>
-                    <button v-if="editingRecordId" @click="cancelEditRecord" type="button" class="px-6 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition active:scale-[0.98]">
+                    <button v-if="isEditing" @click="cancelEditRecord" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold px-5 py-3 rounded-xl transition">
                         取消
                     </button>
                 </div>
@@ -262,7 +260,7 @@
                 <div id="barChart" class="w-full" :style="{ height: chartHeight + 'px' }"></div>
                 
                 <!-- 图表折叠开关 -->
-                <div class="text-center mt-2" v-if="categoriesCount > 3">
+                <div class="text-center mt-2" v-if="categoriesCount > 5">
                     <button @click="toggleChartExpand" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 hover:bg-blue-100 px-4 py-1.5 rounded-full">
                         {{ chartExpanded ? '▲ 收起图表' : '▼ 展开全部 (' + categoriesCount + ' 项)' }}
                     </button>
@@ -291,24 +289,28 @@
                 
                 <!-- 模式一：单局明细流 -->
                 <div v-if="viewMode === 'match'" class="space-y-3">
-                    <div v-for="record in reversedRecords" :key="record.id" class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 border-l-4 group relative transition-all" :class="[getMatchResultStyle(record).borderClass, editingRecordId === record.id ? 'ring-2 ring-amber-400 bg-amber-50/20' : '']">
-                        <div class="flex justify-between font-bold border-b border-gray-100 pb-2 mb-2 items-center gap-2">
-                            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-                                <span class="text-[15px] truncate">
+                    <div v-for="record in reversedRecords" :key="record.id" class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 border-l-4 group relative transition-all" :class="[getMatchResultStyle(record).borderClass, editingRecordId === record.id ? 'ring-2 ring-amber-400 bg-amber-50/10' : '']">
+                        <div class="flex justify-between font-bold border-b border-gray-100 pb-2 mb-2 items-start">
+                            <div class="flex flex-col space-y-1 min-w-0 pr-2">
+                                <div class="text-[15px] leading-snug">
                                     <span class="text-blue-700">{{ record.myDeck }}</span>
                                     <span class="text-gray-300 mx-1 text-xs">VS</span>
                                     <span class="text-red-600">{{ record.opponentDeck }}</span>
-                                </span>
-                                <span v-if="record.isTournament" class="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap">
-                                    🏆 {{ record.tournamentName }} · {{ getRecordTournamentDate(record) }}<template v-if="record.tournamentRound"> ({{ record.tournamentRound }})</template>
-                                </span>
+                                </div>
+                                <!-- 赛事名称与日期放在对局标题下一行，字体完全统一 -->
+                                <div v-if="record.isTournament" class="flex items-center">
+                                    <span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs px-2 py-0.5 rounded-md font-bold inline-flex items-center flex-wrap gap-x-1">
+                                        <span>🏆 {{ record.tournamentName }}<template v-if="record.tournamentRound"> ({{ record.tournamentRound }})</template></span>
+                                        <span>· {{ getRecordTournamentDate(record) }}</span>
+                                    </span>
+                                </div>
                             </div>
                             <div class="flex items-center space-x-1.5 flex-shrink-0">
-                                <span :class="getMatchResultStyle(record).textClass" class="text-sm whitespace-nowrap mr-1">
+                                <span :class="getMatchResultStyle(record).textClass" class="text-sm mr-0.5">
                                     {{ getMatchResultStyle(record).label }}
                                 </span>
                                 <!-- 编辑按钮 -->
-                                <button @click="startEditRecord(record)" class="text-gray-400 hover:text-amber-600 hover:bg-amber-50 p-1 rounded transition-colors" title="编辑 / 补充备注">
+                                <button @click="startEditRecord(record)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-1 rounded transition-colors" title="编辑记录">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 </button>
                                 <!-- 删除按钮 -->
@@ -337,58 +339,53 @@
                     </div>
                 </div>
 
-                <!-- 模式二：赛事战报聚合视图 (按 赛事名称 + 日期 联合分组) -->
+                <!-- 模式二：赛事战报聚合视图 -->
                 <div v-if="viewMode === 'tournament'" class="space-y-4">
                     <div v-for="tGroup in tournamentGroups" :key="tGroup.key" class="bg-white rounded-xl shadow-sm border border-indigo-100 overflow-hidden">
-                        <!-- 战报卡片 Header: 上下两层结构 -->
-                        <div @click="toggleTournamentExpand(tGroup.key)" class="bg-gradient-to-r from-indigo-50 to-blue-50 p-3.5 sm:p-4 cursor-pointer hover:bg-indigo-100/60 transition-colors">
-                            <!-- 第一层（顶栏）：左侧奖杯+赛事名，右侧战绩+箭头 -->
-                            <div class="flex justify-between items-center gap-2 mb-2">
+                        <!-- 头部上下分层设计，解决窄屏挤压 -->
+                        <div class="bg-gradient-to-r from-indigo-50 to-blue-50 p-3.5 cursor-pointer hover:bg-indigo-100/60 transition-colors" @click="toggleTournamentExpand(tGroup.key)">
+                            <!-- 第一层：比赛名 + 战绩与按钮 -->
+                            <div class="flex justify-between items-center gap-2">
                                 <div class="flex items-center space-x-1.5 min-w-0">
                                     <span class="text-lg flex-shrink-0">🏆</span>
-                                    <h3 class="font-black text-indigo-950 text-base truncate">{{ tGroup.name }}</h3>
+                                    <h3 class="font-black text-indigo-900 text-base truncate">{{ tGroup.name }}</h3>
                                 </div>
                                 <div class="flex items-center space-x-2 flex-shrink-0">
-                                    <span class="text-sm font-black text-indigo-700 bg-white/80 px-2.5 py-0.5 rounded-lg border border-indigo-200/60 shadow-sm whitespace-nowrap">
-                                        战绩: {{ tGroup.wins }}胜 - {{ tGroup.losses }}负
-                                    </span>
-                                    <svg :class="{'rotate-180': tGroup.expanded}" class="w-5 h-5 text-indigo-500 transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    <!-- 生成战报长图按钮 (.stop 防止触发折叠) -->
+                                    <button @click.stop="openShareModal(tGroup)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm transition flex items-center space-x-1 whitespace-nowrap" title="生成战报长图">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                        <span>战报图</span>
+                                    </button>
+                                    <span class="text-sm font-black text-indigo-700 whitespace-nowrap">{{ tGroup.wins }}胜 - {{ tGroup.losses }}负</span>
+                                    <svg :class="{'rotate-180': tGroup.expanded}" class="w-4 h-4 text-indigo-500 transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                 </div>
                             </div>
-                            <!-- 第二层（副栏）：使用卡组徽章、轮次统计、比赛日期徽章 -->
-                            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
-                                <div class="flex items-center space-x-2">
-                                    <span class="bg-indigo-600 text-white px-2.5 py-0.5 rounded-full font-bold whitespace-nowrap shadow-sm">
-                                        使用: {{ tGroup.myDeck }}
-                                    </span>
-                                    <span class="whitespace-nowrap font-medium text-indigo-900/70">共记录 {{ tGroup.matches.length }} 轮</span>
-                                </div>
-                                <div class="text-[11px] bg-indigo-100/80 text-indigo-800 px-2 py-0.5 rounded font-mono font-bold whitespace-nowrap">
-                                    📅 {{ tGroup.date }}
-                                </div>
+                            <!-- 第二层：卡组 + 轮次 + 日期 (统一使用默认无衬线字体) -->
+                            <div class="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                                <span class="bg-indigo-600 text-white px-2 py-0.5 rounded-full font-bold whitespace-nowrap">使用: {{ tGroup.myDeck }}</span>
+                                <span class="text-gray-500 whitespace-nowrap">共记录 {{ tGroup.matches.length }} 轮</span>
+                                <span class="text-gray-400 ml-auto whitespace-nowrap">{{ tGroup.date }}</span>
                             </div>
                         </div>
 
-                        <div v-if="tGroup.expanded" class="p-3 bg-gray-50 space-y-2.5 border-t border-indigo-100">
-                            <div v-for="record in tGroup.matches" :key="record.id" class="bg-white p-3 rounded-xl shadow-sm border-l-4 text-sm relative transition-all" :class="[getMatchResultStyle(record).borderClass, editingRecordId === record.id ? 'ring-2 ring-amber-400 bg-amber-50/20' : '']">
-                                <div class="flex justify-between font-bold border-b border-gray-100 pb-1.5 mb-2 items-center gap-2">
-                                    <div class="flex items-center space-x-2 min-w-0">
-                                        <span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-mono flex-shrink-0">{{ record.tournamentRound || '未填轮次' }}</span>
-                                        <span class="text-blue-700 truncate">VS {{ record.opponentDeck }}</span>
+                        <div v-if="tGroup.expanded" class="p-3 bg-gray-50 space-y-2 border-t border-indigo-100">
+                            <div v-for="record in tGroup.matches" :key="record.id" class="bg-white p-3 rounded-xl shadow-sm border-l-4 text-sm relative transition-all" :class="[getMatchResultStyle(record).borderClass, editingRecordId === record.id ? 'ring-2 ring-amber-400 bg-amber-50/10' : '']">
+                                <div class="absolute top-2 right-2 flex items-center space-x-1">
+                                    <button @click="startEditRecord(record)" class="text-gray-400 hover:text-blue-600 bg-white p-1 rounded transition-colors" title="编辑记录">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </button>
+                                    <button @click="confirmDelete(record.id)" class="text-gray-300 hover:text-red-500 bg-white p-1 rounded transition-colors" title="删除记录">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                </div>
+                                <div class="flex justify-between font-bold border-b border-gray-100 pb-1.5 mb-1.5 items-center pr-12">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">{{ record.tournamentRound || '比赛' }}</span>
+                                        <span class="text-blue-700">VS {{ record.opponentDeck }}</span>
                                     </div>
-                                    <div class="flex items-center space-x-1.5 flex-shrink-0">
-                                        <span :class="getMatchResultStyle(record).textClass" class="text-xs whitespace-nowrap mr-1">
-                                            {{ getMatchResultStyle(record).label }}
-                                        </span>
-                                        <!-- 编辑按钮 -->
-                                        <button @click.stop="startEditRecord(record)" class="text-gray-400 hover:text-amber-600 hover:bg-amber-50 p-1 rounded transition-colors" title="编辑 / 补充备注">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                        </button>
-                                        <!-- 删除按钮 -->
-                                        <button @click.stop="confirmDelete(record.id)" class="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors" title="删除记录">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                    </div>
+                                    <span :class="getMatchResultStyle(record).textClass" class="text-xs">
+                                        {{ getMatchResultStyle(record).label }}
+                                    </span>
                                 </div>
                                 <div class="flex space-x-2 mb-1.5">
                                     <div v-for="(g, idx) in getDisplayGames(record)" :key="idx" class="flex-1 border p-1 text-center rounded text-xs" :class="g.isVoid ? 'bg-gray-100 border-dashed opacity-60' : 'bg-gray-50'">
@@ -410,6 +407,41 @@
                         <div class="text-3xl mb-2">🏆</div>
                         暂无赛事战报，录入对局时勾选“计入赛事战报”即可生成！
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 模态框: 战报长图预览与导出 ================= -->
+        <div v-if="shareModal.show" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-[80] px-4 py-6">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full flex flex-col max-h-[90vh] overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 class="text-base font-black text-gray-800">📷 赛事战报图生成</h3>
+                    <button @click="shareModal.show = false" class="text-gray-400 hover:text-gray-700 bg-white rounded-full p-1 shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                
+                <div class="px-5 py-3 bg-blue-50 border-b border-blue-100 flex justify-between items-center text-xs">
+                    <label class="flex items-center space-x-2 cursor-pointer font-bold text-blue-900">
+                        <input type="checkbox" v-model="shareModal.includeNotes" @change="generateShareImage" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
+                        <span>包含复盘备注 (Notes)</span>
+                    </label>
+                    <span class="text-gray-500">支持长按图片或点击下方按钮保存</span>
+                </div>
+
+                <div class="p-4 overflow-y-auto flex-1 bg-gray-200/70 text-center">
+                    <div v-if="shareModal.loading" class="py-20 text-gray-500 font-bold">正在生成战报图...</div>
+                    <img v-else :src="shareModal.dataUrl" class="w-full max-w-[340px] rounded-xl shadow-md mx-auto block" alt="战报长图">
+                </div>
+
+                <div class="p-4 bg-white border-t border-gray-100 flex justify-end space-x-3">
+                    <button @click="shareModal.show = false" class="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+                        关闭
+                    </button>
+                    <a :href="shareModal.dataUrl" :download="`${shareModal.group?.name}_${shareModal.group?.date}_战报.png`" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-bold transition shadow-md flex items-center space-x-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        <span>保存图片</span>
+                    </a>
                 </div>
             </div>
         </div>
@@ -443,7 +475,6 @@
                         </div>
                         <ul class="space-y-2">
                             <li v-for="game in gamesList" :key="game.id" class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
-                                <!-- View Mode -->
                                 <template v-if="editingId !== game.id">
                                     <span class="text-sm font-bold text-gray-700 truncate mr-2">{{ game.name }}</span>
                                     <div class="flex space-x-2 flex-shrink-0">
@@ -451,7 +482,6 @@
                                         <button @click="confirmDeleteGame(game.id)" class="text-red-400 hover:text-red-600 text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm">删除</button>
                                     </div>
                                 </template>
-                                <!-- Edit Mode -->
                                 <template v-else>
                                     <input v-model="editingName" type="text" class="flex-1 border rounded p-1 text-sm mr-2 outline-none focus:ring-1 focus:ring-blue-300">
                                     <div class="flex space-x-2 flex-shrink-0">
@@ -496,11 +526,11 @@
         </div>
 
         <!-- ================= 模态框: 通用提示/确认 ================= -->
-        <div v-if="modal.show" class="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-[70] transition-opacity px-4">
+        <div v-if="modal.show" class="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-[90] transition-opacity px-4">
             <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden transform transition-all">
                 <div class="p-5">
                     <h3 class="text-lg font-black text-gray-800 mb-2">{{ modal.isAlert ? '提示' : '确认操作' }}</h3>
-                    <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{{ modal.message }}</p>
+                    <p class="text-sm text-gray-600 leading-relaxed">{{ modal.message }}</p>
                 </div>
                 <div class="bg-gray-50 px-5 py-3 flex justify-end space-x-3 border-t border-gray-100">
                     <button v-if="!modal.isAlert" @click="closeModal" class="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition-colors">
@@ -521,8 +551,6 @@
         createApp({
             setup() {
                 const generateId = () => Math.random().toString(36).substr(2, 9);
-
-                // 获取本地今日日期 YYYY-MM-DD
                 const getTodayStr = () => {
                     const d = new Date();
                     const year = d.getFullYear();
@@ -531,23 +559,12 @@
                     return `${year}-${month}-${day}`;
                 };
 
-                // 提取或标准化单条记录的比赛日期 (YYYY-MM-DD)
+                // 获取单条记录的比赛日期（兼容旧记录）
                 const getRecordTournamentDate = (r) => {
-                    if (r.tournamentDate && r.tournamentDate.trim()) {
-                        return r.tournamentDate.trim();
-                    }
-                    if (r.date) {
-                        const rawDate = r.date.split(' ')[0];
-                        const parts = rawDate.split(/[\/\-]/);
-                        if (parts.length === 3) {
-                            return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
-                        }
-                        return rawDate;
-                    }
-                    return getTodayStr();
+                    return r.tournamentDate || (r.date ? r.date.split(' ')[0].replace(/\//g, '-') : getTodayStr());
                 };
 
-                // ================= State: Generic Modals =================
+                // ================= State: Modals =================
                 const modal = ref({ show: false, message: '', onConfirm: null, isAlert: true });
                 const showAlert = (msg) => { modal.value = { show: true, message: msg, onConfirm: null, isAlert: true }; };
                 const showConfirm = (msg, onConfirmCallback) => { modal.value = { show: true, message: msg, onConfirm: onConfirmCallback, isAlert: false }; };
@@ -561,16 +578,21 @@
                 const currentGameId = ref('');
                 const currentFormatId = ref('');
 
-                // ================= Core Logic: Data Filtering =================
+                // ================= State: Editing =================
+                const editingRecordId = ref(null);
+                const isEditing = computed(() => editingRecordId.value !== null);
+
+                // ================= State: Share Modal =================
+                const shareModal = ref({ show: false, group: null, includeNotes: true, dataUrl: '', loading: false });
+
                 const currentFormatsList = computed(() => formatsList.value.filter(f => f.gameId === currentGameId.value));
                 const currentRecords = computed(() => records.value.filter(r => r.formatId === currentFormatId.value));
 
-                // ================= State: Category Manager Modal =================
+                // ================= State: Manager Modal =================
                 const isManagerOpen = ref(false);
                 const managerTab = ref('games');
                 const newGameName = ref('');
                 const newFormatName = ref('');
-                
                 const editingId = ref(null);
                 const editingName = ref('');
 
@@ -580,24 +602,13 @@
                 });
                 const currentFormatsListForManager = computed(() => formatsList.value.filter(f => f.gameId === currentGameId.value));
 
-                const openManager = () => {
-                    cancelEdit();
-                    isManagerOpen.value = true;
-                };
-
-                const startEdit = (id, currentName) => {
-                    editingId.value = id;
-                    editingName.value = currentName;
-                };
-                const cancelEdit = () => {
-                    editingId.value = null;
-                    editingName.value = '';
-                };
+                const openManager = () => { cancelEdit(); isManagerOpen.value = true; };
+                const startEdit = (id, name) => { editingId.value = id; editingName.value = name; };
+                const cancelEdit = () => { editingId.value = null; editingName.value = ''; };
 
                 const saveEdit = (type) => {
                     const val = editingName.value.trim();
                     if (!val) return showAlert('名称不能为空！');
-                    
                     if (type === 'game') {
                         const target = gamesList.value.find(g => g.id === editingId.value);
                         if (target) target.name = val;
@@ -613,16 +624,11 @@
                 const switchGame = (gameId) => {
                     currentGameId.value = gameId;
                     localStorage.setItem('tcg_current_gameId_v4', gameId);
-                    
-                    const relatedFormats = formatsList.value.filter(f => f.gameId === gameId);
-                    if (relatedFormats.length > 0) {
-                        switchFormat(relatedFormats[0].id);
-                    }
-                    
+                    const related = formatsList.value.filter(f => f.gameId === gameId);
+                    if (related.length > 0) switchFormat(related[0].id);
                     statFilter.value = { myDeck: 'All', oppDeck: 'All' };
                     chartExpanded.value = false;
                     cancelEdit();
-                    cancelEditRecord();
                 };
 
                 const switchFormat = (formatId) => {
@@ -630,22 +636,18 @@
                     localStorage.setItem('tcg_current_formatId_v4', formatId);
                     statFilter.value = { myDeck: 'All', oppDeck: 'All' };
                     chartExpanded.value = false;
-                    cancelEditRecord();
                 };
 
                 const addGame = () => {
                     const name = newGameName.value.trim();
                     if (!name) return;
                     if (gamesList.value.some(g => g.name === name)) return showAlert('该游戏已存在！');
-                    
                     const gId = generateId();
                     gamesList.value.push({ id: gId, name });
                     localStorage.setItem('tcg_games_v4', JSON.stringify(gamesList.value));
-                    
                     const fId = generateId();
                     formatsList.value.push({ id: fId, gameId: gId, name: '默认环境' });
                     localStorage.setItem('tcg_formats_v4', JSON.stringify(formatsList.value));
-                    
                     newGameName.value = '';
                     switchGame(gId);
                 };
@@ -654,115 +656,72 @@
                     const name = newFormatName.value.trim();
                     if (!name) return;
                     if (currentFormatsListForManager.value.some(f => f.name === name)) return showAlert('当前游戏下该环境已存在！');
-                    
                     const fId = generateId();
                     formatsList.value.push({ id: fId, gameId: currentGameId.value, name });
                     localStorage.setItem('tcg_formats_v4', JSON.stringify(formatsList.value));
-                    
                     newFormatName.value = '';
                     switchFormat(fId);
                 };
 
                 const confirmDeleteGame = (gameId) => {
                     if (gamesList.value.length <= 1) return showAlert('这是最后一款游戏，无法删除！');
-                    
-                    const gameFormats = formatsList.value.filter(f => f.gameId === gameId).map(f => f.id);
-                    const gameRecordsCount = records.value.filter(r => gameFormats.includes(r.formatId)).length;
-                    
-                    const targetGame = gamesList.value.find(g => g.id === gameId);
-                    let msg = `确定要删除游戏【${targetGame.name}】吗？这会级联删除其下的所有环境！`;
-                    if (gameRecordsCount > 0) msg += `\n注意：此操作将永久删除与之相关的 ${gameRecordsCount} 条对战记录！`;
-                    
+                    const formats = formatsList.value.filter(f => f.gameId === gameId).map(f => f.id);
+                    const count = records.value.filter(r => formats.includes(r.formatId)).length;
+                    const target = gamesList.value.find(g => g.id === gameId);
+                    let msg = `确定要删除游戏【${target.name}】吗？`;
+                    if (count > 0) msg += `\n注意：将级联删除关联的 ${count} 条对局记录！`;
                     showConfirm(msg, () => {
                         gamesList.value = gamesList.value.filter(g => g.id !== gameId);
                         formatsList.value = formatsList.value.filter(f => f.gameId !== gameId);
-                        records.value = records.value.filter(r => !gameFormats.includes(r.formatId));
-                        
+                        records.value = records.value.filter(r => !formats.includes(r.formatId));
                         localStorage.setItem('tcg_games_v4', JSON.stringify(gamesList.value));
                         localStorage.setItem('tcg_formats_v4', JSON.stringify(formatsList.value));
                         localStorage.setItem('tcg_records_v4', JSON.stringify(records.value));
-                        
                         if (currentGameId.value === gameId) switchGame(gamesList.value[0].id);
                     });
                 };
 
                 const confirmDeleteFormat = (formatId) => {
-                    if (currentFormatsListForManager.value.length <= 1) return showAlert('这是该游戏下最后一个环境，无法删除！');
-                    
-                    const formatRecordsCount = records.value.filter(r => r.formatId === formatId).length;
-                    const targetFormat = formatsList.value.find(f => f.id === formatId);
-                    
-                    let msg = `确定要删除环境【${targetFormat.name}】吗？`;
-                    if (formatRecordsCount > 0) msg += `\n注意：此操作将永久删除该环境下的 ${formatRecordsCount} 条对战记录！`;
-                    
+                    if (currentFormatsListForManager.value.length <= 1) return showAlert('这是最后一个环境，无法删除！');
+                    const count = records.value.filter(r => r.formatId === formatId).length;
+                    const target = formatsList.value.find(f => f.id === formatId);
+                    let msg = `确定要删除环境【${target.name}】吗？`;
+                    if (count > 0) msg += `\n注意：将删除该环境下的 ${count} 条对局记录！`;
                     showConfirm(msg, () => {
                         formatsList.value = formatsList.value.filter(f => f.id !== formatId);
                         records.value = records.value.filter(r => r.formatId !== formatId);
-                        
                         localStorage.setItem('tcg_formats_v4', JSON.stringify(formatsList.value));
                         localStorage.setItem('tcg_records_v4', JSON.stringify(records.value));
-                        
                         if (currentFormatId.value === formatId) {
-                            const remainingFormats = formatsList.value.filter(f => f.gameId === currentGameId.value);
-                            switchFormat(remainingFormats[0].id);
+                            const rem = formatsList.value.filter(f => f.gameId === currentGameId.value);
+                            switchFormat(rem[0].id);
                         }
                     });
                 };
 
-                // ================= Migration Script (Pure Empty Init) =================
-                const runMigration = () => {
-                    const migrated = localStorage.getItem('tcg_v4_migrated');
-                    if (migrated) {
-                        gamesList.value = JSON.parse(localStorage.getItem('tcg_games_v4')) || [];
-                        formatsList.value = JSON.parse(localStorage.getItem('tcg_formats_v4')) || [];
-                        records.value = JSON.parse(localStorage.getItem('tcg_records_v4')) || [];
+                // ================= Migration & Init =================
+                const initApp = () => {
+                    const savedGames = localStorage.getItem('tcg_games_v4') || localStorage.getItem('tcg_games_v5');
+                    const savedFormats = localStorage.getItem('tcg_formats_v4') || localStorage.getItem('tcg_formats_v5');
+                    const savedRecords = localStorage.getItem('tcg_records_v4') || localStorage.getItem('tcg_records_v5');
+
+                    if (savedGames && savedFormats) {
+                        gamesList.value = JSON.parse(savedGames);
+                        formatsList.value = JSON.parse(savedFormats);
+                        records.value = savedRecords ? JSON.parse(savedRecords) : [];
                     } else {
-                        const oldDataStr = localStorage.getItem('tcg_records_pro_v3') || localStorage.getItem('tcg_records_pro_v2');
-                        let parsedRecords = [];
-                        if (oldDataStr) {
-                            try { parsedRecords = JSON.parse(oldDataStr); } catch (e) {}
-                        }
-                        
-                        if (parsedRecords.length === 0) {
-                            const gId = generateId();
-                            const fId = generateId();
-                            gamesList.value = [{ id: gId, name: '游戏王 OCG' }];
-                            formatsList.value = [{ id: fId, gameId: gId, name: '当前环境' }];
-                            records.value = [];
-                        } else {
-                            const uniqueGameNames = [...new Set(parsedRecords.map(r => r.gameCategory || '默认游戏'))];
-                            const newGames = [];
-                            const newFormats = [];
-                            
-                            uniqueGameNames.forEach(gName => {
-                                const gId = generateId();
-                                newGames.push({ id: gId, name: gName });
-                                
-                                const fId = generateId();
-                                newFormats.push({ id: fId, gameId: gId, name: '默认环境' });
-                                
-                                parsedRecords.forEach(r => {
-                                    if ((r.gameCategory || '默认游戏') === gName) {
-                                        r.gameId = gId;
-                                        r.formatId = fId;
-                                    }
-                                });
-                            });
-                            
-                            gamesList.value = newGames;
-                            formatsList.value = newFormats;
-                            records.value = parsedRecords;
-                        }
-                        
+                        const gId = generateId();
+                        const fId = generateId();
+                        gamesList.value = [{ id: gId, name: '游戏王 OCG' }];
+                        formatsList.value = [{ id: fId, gameId: gId, name: '当前环境' }];
+                        records.value = [];
                         localStorage.setItem('tcg_games_v4', JSON.stringify(gamesList.value));
                         localStorage.setItem('tcg_formats_v4', JSON.stringify(formatsList.value));
                         localStorage.setItem('tcg_records_v4', JSON.stringify(records.value));
-                        localStorage.setItem('tcg_v4_migrated', 'true');
                     }
 
-                    const savedGameId = localStorage.getItem('tcg_current_gameId_v4');
-                    const savedFormatId = localStorage.getItem('tcg_current_formatId_v4');
-                    
+                    const savedGameId = localStorage.getItem('tcg_current_gameId_v4') || localStorage.getItem('tcg_current_gameId_v5');
+                    const savedFormatId = localStorage.getItem('tcg_current_formatId_v4') || localStorage.getItem('tcg_current_formatId_v5');
                     if (savedGameId && gamesList.value.some(g => g.id === savedGameId)) {
                         currentGameId.value = savedGameId;
                     } else if (gamesList.value.length > 0) {
@@ -772,62 +731,43 @@
                     if (savedFormatId && formatsList.value.some(f => f.id === savedFormatId && f.gameId === currentGameId.value)) {
                         currentFormatId.value = savedFormatId;
                     } else {
-                        const relatedFormats = formatsList.value.filter(f => f.gameId === currentGameId.value);
-                        if (relatedFormats.length > 0) currentFormatId.value = relatedFormats[0].id;
+                        const rel = formatsList.value.filter(f => f.gameId === currentGameId.value);
+                        if (rel.length > 0) currentFormatId.value = rel[0].id;
                     }
                 };
 
-                // ================= State: Records, Form & Edit Mode =================
+                // ================= Form & Records =================
                 const viewMode = ref('match');
                 const expandedTournaments = ref({});
                 const statFilter = ref({ myDeck: 'All', oppDeck: 'All' });
-                const editingRecordId = ref(null);
                 
-                // Chart States
                 const chartExpanded = ref(false);
                 const chartHeight = ref(300);
                 const categoriesCount = ref(0);
                 let myChart = null;
 
                 const getEmptyForm = () => ({
-                    isTournament: false,
-                    tournamentName: '',
-                    tournamentDate: getTodayStr(),
-                    tournamentRound: '',
-                    myDeck: '',
-                    opponentDeck: '',
-                    notes: '',
-                    matchType: 'Normal',
-                    games: [
-                        { isFirst: false, isWin: false, isVoid: false },
-                        { isFirst: false, isWin: false, isVoid: false },
-                        { isFirst: false, isWin: false, isVoid: false }
-                    ]
+                    isTournament: false, tournamentName: '', tournamentDate: getTodayStr(), tournamentRound: '',
+                    myDeck: '', opponentDeck: '', notes: '', matchType: 'Normal',
+                    games: [{ isFirst: true, isWin: true, isVoid: false }, { isFirst: true, isWin: true, isVoid: false }, { isFirst: true, isWin: true, isVoid: false }]
                 });
                 const form = ref(getEmptyForm());
 
-                // ================= Match Logic =================
                 const needG3 = computed(() => {
                     if (form.value.matchType === 'Time' || form.value.matchType === 'Draw') return false;
                     return form.value.games[0].isWin !== form.value.games[1].isWin;
                 });
                 const g3ReasonText = computed(() => {
-                    if (form.value.matchType === 'Time') return 'BO1局无需G3';
-                    if (form.value.matchType === 'Draw') return '平局无需G3';
-                    return '前两局已分出胜负，无需G3';
+                    if (form.value.matchType === 'Time') return 'BO1';
+                    if (form.value.matchType === 'Draw') return '平局';
+                    return '前两局已分出胜负';
                 });
 
-                const handleVoidChange = (index) => {
-                    if (form.value.matchType === 'Double' && form.value.games[index].isVoid) {
-                        for (let i = index + 1; i < 3; i++) {
-                            form.value.games[i].isVoid = true;
-                        }
+                const toggleVoid = (idx) => {
+                    form.value.games[idx].isVoid = !form.value.games[idx].isVoid;
+                    if (form.value.matchType === 'Double' && form.value.games[idx].isVoid) {
+                        for (let i = idx + 1; i < 3; i++) form.value.games[i].isVoid = true;
                     }
-                };
-
-                const toggleVoid = (index) => {
-                    form.value.games[index].isVoid = !form.value.games[index].isVoid;
-                    handleVoidChange(index);
                 };
 
                 const getValidGames = (record) => {
@@ -869,7 +809,6 @@
                     recs.forEach(r => {
                         const type = r.matchType || 'Normal';
                         const validGames = getValidGames(r);
-                        
                         if (type !== 'Draw' && type !== 'Double') {
                             matchTotal++;
                             const wins = validGames.filter(g => g.isWin).length;
@@ -886,22 +825,9 @@
 
                 const uniqueAllDecks = computed(() => Array.from(new Set(currentRecords.value.flatMap(r => [r.myDeck, r.opponentDeck]).filter(Boolean))));
                 const uniqueMyDecks = computed(() => Array.from(new Set(currentRecords.value.map(r => r.myDeck).filter(Boolean))));
-                
-                // 赛事名称候选列表：严格按从新到旧排序
                 const uniqueTournaments = computed(() => {
-                    const seen = new Set();
-                    const list = [];
-                    for (let i = currentRecords.value.length - 1; i >= 0; i--) {
-                        const r = currentRecords.value[i];
-                        if (r.isTournament && r.tournamentName) {
-                            const name = r.tournamentName.trim();
-                            if (name && !seen.has(name)) {
-                                seen.add(name);
-                                list.push(name);
-                            }
-                        }
-                    }
-                    return list;
+                    const list = [...currentRecords.value].reverse().filter(r => r.isTournament && r.tournamentName).map(r => r.tournamentName);
+                    return Array.from(new Set(list));
                 });
                 
                 const uniqueOppDecksContextual = computed(() => {
@@ -919,107 +845,60 @@
                 const currentStats = computed(() => calcStats(filteredRecordsForStats.value));
                 const reversedRecords = computed(() => [...currentRecords.value].reverse());
 
-                // 赛事战报聚合：采用 赛事名称 + 比赛日期 联合主键，同名不同日期的赛事独立分组
                 const tournamentGroups = computed(() => {
                     const groups = {};
                     currentRecords.value.forEach(r => {
-                        if (r.isTournament && r.tournamentName && r.tournamentName.trim()) {
-                            const cleanName = r.tournamentName.trim();
-                            const tDate = getRecordTournamentDate(r);
-                            const groupKey = `${cleanName}__${tDate}`;
-                            
-                            if (!groups[groupKey]) {
-                                groups[groupKey] = {
-                                    key: groupKey,
-                                    name: cleanName,
-                                    myDeck: r.myDeck,
-                                    date: tDate,
-                                    latestId: r.id || 0,
-                                    matches: [],
-                                    wins: 0,
-                                    losses: 0,
-                                    expanded: expandedTournaments.value[groupKey] ?? true
-                                };
+                        if (r.isTournament && r.tournamentName) {
+                            const name = r.tournamentName;
+                            const date = getRecordTournamentDate(r);
+                            const key = `${name}__${date}`;
+                            if (!groups[key]) {
+                                groups[key] = { key, name, date, myDeck: r.myDeck, matches: [], wins: 0, losses: 0, expanded: expandedTournaments.value[key] ?? true };
                             }
-                            groups[groupKey].matches.push(r);
-                            if (r.id > groups[groupKey].latestId) {
-                                groups[groupKey].latestId = r.id;
-                            }
+                            groups[key].matches.push(r);
                             const style = getMatchResultStyle(r);
-                            if (style.label.includes('WIN') || style.label.includes('胜')) groups[groupKey].wins++;
-                            else if (style.label.includes('LOSE') || style.label.includes('负')) groups[groupKey].losses++;
+                            if (style.label.includes('WIN') || style.label.includes('胜')) groups[key].wins++;
+                            else if (style.label.includes('LOSE') || style.label.includes('负')) groups[key].losses++;
                         }
                     });
-                    // 按比赛日期从新到旧排序，同日期按最新录入记录排序
-                    return Object.values(groups).sort((a, b) => {
-                        if (a.date !== b.date) return b.date.localeCompare(a.date);
-                        return b.latestId - a.latestId;
-                    });
+                    return Object.values(groups).sort((a, b) => new Date(b.date) - new Date(a.date));
                 });
 
-                const toggleTournamentExpand = (key) => {
-                    expandedTournaments.value[key] = !(expandedTournaments.value[key] ?? true);
-                };
+                const toggleTournamentExpand = (key) => expandedTournaments.value[key] = !(expandedTournaments.value[key] ?? true);
 
-                // ================= Actions: Create, Edit, Delete =================
+                // ================= Actions & Editing =================
                 const startEditRecord = (record) => {
                     editingRecordId.value = record.id;
-                    const clonedGames = record.games ? JSON.parse(JSON.stringify(record.games)) : [];
-                    while (clonedGames.length < 3) {
-                        clonedGames.push({ isFirst: false, isWin: false, isVoid: false });
+                    form.value = JSON.parse(JSON.stringify(record));
+                    if (!form.value.tournamentDate) {
+                        form.value.tournamentDate = getRecordTournamentDate(record);
                     }
-                    form.value = {
-                        isTournament: !!record.isTournament,
-                        tournamentName: record.tournamentName || '',
-                        tournamentDate: getRecordTournamentDate(record),
-                        tournamentRound: record.tournamentRound || '',
-                        myDeck: record.myDeck || '',
-                        opponentDeck: record.opponentDeck || '',
-                        notes: record.notes || '',
-                        matchType: record.matchType || 'Normal',
-                        games: clonedGames
-                    };
-                    const el = document.getElementById('entryFormCard');
-                    if (el) {
-                        const y = el.getBoundingClientRect().top + window.pageYOffset - 105;
-                        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-                    } else {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 };
 
                 const cancelEditRecord = () => {
                     editingRecordId.value = null;
-                    const lastMyDeck = form.value.myDeck;
-                    const lastIsTournament = form.value.isTournament;
-                    const lastTournamentName = form.value.tournamentName;
-                    const lastTournamentDate = form.value.tournamentDate || getTodayStr();
-                    
+                    const lastDeck = form.value.myDeck;
+                    const lastIsT = form.value.isTournament;
+                    const lastTName = form.value.tournamentName;
+                    const lastTDate = form.value.tournamentDate;
                     form.value = getEmptyForm();
-                    form.value.myDeck = lastMyDeck;
-                    form.value.isTournament = lastIsTournament;
-                    form.value.tournamentName = lastTournamentName;
-                    form.value.tournamentDate = lastTournamentDate;
+                    form.value.myDeck = lastDeck;
+                    form.value.isTournament = lastIsT;
+                    form.value.tournamentName = lastTName;
+                    form.value.tournamentDate = lastTDate;
                 };
 
                 const saveRecord = () => {
                     if (!form.value.myDeck.trim() || !form.value.opponentDeck.trim()) return showAlert('请填写我方卡组和对手卡组！');
                     if (form.value.isTournament && !form.value.tournamentName.trim()) return showAlert('开启赛事战报时请填写赛事名称！');
                     
-                    if (form.value.isTournament && !form.value.tournamentDate) {
-                        form.value.tournamentDate = getTodayStr();
-                    }
-
-                    if (editingRecordId.value) {
+                    if (isEditing.value) {
                         const idx = records.value.findIndex(r => r.id === editingRecordId.value);
                         if (idx !== -1) {
-                            records.value[idx] = {
-                                ...records.value[idx],
-                                ...JSON.parse(JSON.stringify(form.value))
-                            };
-                            localStorage.setItem('tcg_records_v4', JSON.stringify(records.value));
+                            records.value[idx] = { ...records.value[idx], ...JSON.parse(JSON.stringify(form.value)) };
                         }
-                        cancelEditRecord();
+                        editingRecordId.value = null;
                     } else {
                         const newRecord = { 
                             id: Date.now(), 
@@ -1029,26 +908,27 @@
                             ...JSON.parse(JSON.stringify(form.value)) 
                         };
                         records.value.push(newRecord);
-                        localStorage.setItem('tcg_records_v4', JSON.stringify(records.value));
-                        
-                        const lastMyDeck = form.value.myDeck;
-                        const lastIsTournament = form.value.isTournament;
-                        const lastTournamentName = form.value.tournamentName;
-                        const lastTournamentDate = form.value.tournamentDate || getTodayStr();
-                        
-                        form.value = getEmptyForm();
-                        form.value.myDeck = lastMyDeck;
-                        form.value.isTournament = lastIsTournament;
-                        form.value.tournamentName = lastTournamentName;
-                        form.value.tournamentDate = lastTournamentDate;
                     }
+
+                    localStorage.setItem('tcg_records_v4', JSON.stringify(records.value));
+                    
+                    const lastMyDeck = form.value.myDeck;
+                    const lastIsT = form.value.isTournament;
+                    const lastTName = form.value.tournamentName;
+                    const lastTDate = form.value.tournamentDate;
+                    
+                    form.value = getEmptyForm();
+                    form.value.myDeck = lastMyDeck;
+                    form.value.isTournament = lastIsT;
+                    form.value.tournamentName = lastTName;
+                    form.value.tournamentDate = lastTDate;
                 };
 
                 const confirmDelete = (id) => {
                     showConfirm('确定要删除这条对局记录吗？删除后数据无法恢复。', () => {
-                        if (editingRecordId.value === id) cancelEditRecord();
                         records.value = records.value.filter(r => r.id !== id);
                         localStorage.setItem('tcg_records_v4', JSON.stringify(records.value));
+                        if (editingRecordId.value === id) cancelEditRecord();
                     });
                 };
 
@@ -1070,24 +950,262 @@
                             const parsed = JSON.parse(e.target.result);
                             if (Array.isArray(parsed)) {
                                 parsed.forEach(r => {
-                                    if (!r.gameId || !gamesList.value.some(g => g.id === r.gameId)) {
-                                        r.gameId = currentGameId.value;
-                                    }
-                                    if (!r.formatId || !formatsList.value.some(f => f.id === r.formatId)) {
-                                        r.formatId = currentFormatId.value;
-                                    }
-                                    if (r.isTournament && !r.tournamentDate) {
-                                        r.tournamentDate = getRecordTournamentDate(r);
+                                    if (!gamesList.value.some(g => g.id === r.gameId)) r.gameId = currentGameId.value;
+                                    if (!formatsList.value.some(f => f.id === r.formatId)) r.formatId = currentFormatId.value;
+                                    if (!r.tournamentDate && r.date) {
+                                        r.tournamentDate = r.date.split(' ')[0].replace(/\//g, '-');
                                     }
                                 });
                                 records.value = parsed;
                                 localStorage.setItem('tcg_records_v4', JSON.stringify(records.value));
-                                showAlert('数据导入成功！已自动适配当前环境分类与赛事日期。');
+                                showAlert('数据导入成功！');
                             } else showAlert('导入失败：文件格式不符合要求。');
                         } catch (err) { showAlert('导入失败：JSON 文件解析错误！'); }
                         event.target.value = '';
                     };
                     reader.readAsText(file);
+                };
+
+                // ================= 紧凑窄屏版单场比赛战报图生成引擎 (W = 360px, 统一无衬线字体) =================
+                const openShareModal = (tGroup) => {
+                    shareModal.value = { show: true, group: tGroup, includeNotes: true, dataUrl: '', loading: true };
+                    nextTick(() => { generateShareImage(); });
+                };
+
+                const wrapCanvasText = (ctx, text, maxWidth) => {
+                    if (!text) return [];
+                    const lines = [];
+                    const paragraphs = text.split('\n');
+                    paragraphs.forEach(p => {
+                        let line = '';
+                        for (let i = 0; i < p.length; i++) {
+                            const testLine = line + p[i];
+                            const metrics = ctx.measureText(testLine);
+                            if (metrics.width > maxWidth && i > 0) {
+                                lines.push(line);
+                                line = p[i];
+                            } else {
+                                line = testLine;
+                            }
+                        }
+                        lines.push(line);
+                    });
+                    return lines;
+                };
+
+                const generateShareImage = () => {
+                    const group = shareModal.value.group;
+                    if (!group) return;
+                    shareModal.value.loading = true;
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const scale = 2; // 高清 2x 采样
+                    const W = 360;   // 标准手机竖屏卡片宽度 (360px)
+                    const includeNotes = shareModal.value.includeNotes;
+
+                    // 1. 预先计算每一轮对局卡片的精确高度（含多行备注折行）
+                    ctx.font = '11px sans-serif';
+                    const headerH = 74;
+                    const bodyPadding = 10;
+                    const matchGap = 8;
+
+                    const matchLayouts = group.matches.map(m => {
+                        let noteLines = [];
+                        let noteBoxH = 0;
+                        if (includeNotes && m.notes && m.notes.trim()) {
+                            noteLines = wrapCanvasText(ctx, `📝 ${m.notes.trim()}`, W - 56);
+                            noteBoxH = noteLines.length * 16 + 10;
+                        }
+                        const cardH = 82 + (noteBoxH > 0 ? noteBoxH + 6 : 0);
+                        return { match: m, cardH, noteLines, noteBoxH };
+                    });
+
+                    const totalMatchesH = matchLayouts.reduce((sum, item) => sum + item.cardH, 0) + Math.max(0, matchLayouts.length - 1) * matchGap;
+                    const totalH = headerH + bodyPadding * 2 + totalMatchesH;
+
+                    canvas.width = W * scale;
+                    canvas.height = totalH * scale;
+                    ctx.scale(scale, scale);
+
+                    // 2. 整张画布直接作为该场比赛的卡片容器（圆角裁切）
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.roundRect(0, 0, W, totalH, 12);
+                    ctx.clip();
+
+                    // 卡片整体底色
+                    ctx.fillStyle = '#f9fafb';
+                    ctx.fillRect(0, 0, W, totalH);
+
+                    // 3. 顶部赛事信息栏
+                    const headerGrad = ctx.createLinearGradient(0, 0, W, 0);
+                    headerGrad.addColorStop(0, '#eef2ff');
+                    headerGrad.addColorStop(1, '#eff6ff');
+                    ctx.fillStyle = headerGrad;
+                    ctx.fillRect(0, 0, W, headerH);
+
+                    ctx.fillStyle = '#e0e7ff';
+                    ctx.fillRect(0, headerH - 1, W, 1);
+
+                    // 第一行：左奖杯+赛事名，右战绩
+                    ctx.fillStyle = '#1e1b4b';
+                    ctx.font = 'bold 15px sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`🏆 ${group.name}`, 12, 28);
+
+                    ctx.fillStyle = '#4338ca';
+                    ctx.font = 'bold 13px sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`战绩: ${group.wins}胜 - ${group.losses}负`, W - 12, 28);
+
+                    // 第二行：使用卡组胶囊 + 轮次统计 + 右侧比赛日期 (全部统一为 sans-serif)
+                    ctx.font = 'bold 11px sans-serif';
+                    const deckText = `使用: ${group.myDeck}`;
+                    const deckBadgeW = ctx.measureText(deckText).width + 14;
+                    ctx.fillStyle = '#4f46e5';
+                    ctx.beginPath();
+                    ctx.roundRect(12, 42, deckBadgeW, 20, 10);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(deckText, 19, 56);
+
+                    ctx.fillStyle = '#6b7280';
+                    ctx.font = '11px sans-serif';
+                    ctx.fillText(`共记录 ${group.matches.length} 轮`, 12 + deckBadgeW + 8, 56);
+
+                    ctx.fillStyle = '#9ca3af';
+                    ctx.font = '11px sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(group.date, W - 12, 56);
+                    ctx.textAlign = 'left';
+
+                    // 4. 逐轮绘制该场比赛的对局卡片
+                    let curY = headerH + bodyPadding;
+                    matchLayouts.forEach((item, idx) => {
+                        const { match: m, cardH, noteLines, noteBoxH } = item;
+                        const style = getMatchResultStyle(m);
+                        const cardX = 10;
+                        const cardW = W - 20;
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.roundRect(cardX, curY, cardW, cardH, 8);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fill();
+                        ctx.strokeStyle = '#f3f4f6';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        ctx.clip();
+
+                        // 左侧胜负状态色条
+                        const barColor = (style.label.includes('WIN') || style.label.includes('胜')) ? '#22c55e'
+                            : (style.label.includes('DRAW') ? '#facc15'
+                            : (style.label.includes('DOUBLE') ? '#9ca3af' : '#f87171'));
+                        ctx.fillStyle = barColor;
+                        ctx.fillRect(cardX, curY, 4, cardH);
+
+                        // 轮次胶囊 (统一使用 sans-serif)
+                        const roundText = m.tournamentRound || `R${idx + 1}`;
+                        ctx.font = 'bold 11px sans-serif';
+                        const rBadgeW = Math.max(26, ctx.measureText(roundText).width + 12);
+                        ctx.fillStyle = '#f3f4f6';
+                        ctx.beginPath();
+                        ctx.roundRect(cardX + 12, curY + 9, rBadgeW, 18, 4);
+                        ctx.fill();
+
+                        ctx.fillStyle = '#374151';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(roundText, cardX + 12 + rBadgeW / 2, curY + 22);
+
+                        // 对手卡组名
+                        ctx.textAlign = 'left';
+                        ctx.fillStyle = '#1d4ed8';
+                        ctx.font = 'bold 13px sans-serif';
+                        ctx.fillText(`VS ${m.opponentDeck}`, cardX + 12 + rBadgeW + 6, curY + 23);
+
+                        // 右侧胜负结果文字
+                        ctx.textAlign = 'right';
+                        ctx.fillStyle = (style.label.includes('WIN') || style.label.includes('胜')) ? '#16a34a'
+                            : (style.label.includes('DRAW') ? '#ca8a04'
+                            : (style.label.includes('DOUBLE') ? '#6b7280' : '#ef4444'));
+                        ctx.font = 'bold 12px sans-serif';
+                        ctx.fillText(style.label, cardX + cardW - 12, curY + 23);
+                        ctx.textAlign = 'left';
+
+                        // 卡片内部分割线
+                        ctx.fillStyle = '#f3f4f6';
+                        ctx.fillRect(cardX + 12, curY + 33, cardW - 24, 1);
+
+                        // G1 / G2 / G3 小局详情方块
+                        const displayGames = getDisplayGames(m);
+                        const gCount = displayGames.length;
+                        const gGap = 6;
+                        const totalGW = cardW - 24;
+                        const singleGW = (totalGW - gGap * (gCount - 1)) / gCount;
+
+                        displayGames.forEach((g, gIdx) => {
+                            const gx = cardX + 12 + gIdx * (singleGW + gGap);
+                            const gy = curY + 39;
+                            const gh = 34;
+
+                            ctx.fillStyle = g.isVoid ? '#f3f4f6' : '#f9fafb';
+                            ctx.strokeStyle = '#e5e7eb';
+                            ctx.beginPath();
+                            ctx.roundRect(gx, gy, singleGW, gh, 5);
+                            ctx.fill();
+                            ctx.stroke();
+
+                            ctx.textAlign = 'center';
+                            if (g.isVoid) {
+                                ctx.fillStyle = '#9ca3af';
+                                ctx.font = 'bold 11px sans-serif';
+                                ctx.fillText('未完成', gx + singleGW / 2, gy + 21);
+                            } else {
+                                ctx.fillStyle = '#9ca3af';
+                                ctx.font = 'bold 10px sans-serif';
+                                ctx.fillText(`G${gIdx + 1}·${g.isFirst ? '先' : '后'}`, gx + singleGW / 2, gy + 13);
+
+                                ctx.fillStyle = g.isWin ? '#16a34a' : '#9ca3af';
+                                ctx.font = 'bold 11px sans-serif';
+                                ctx.fillText(g.isWin ? '胜' : '负', gx + singleGW / 2, gy + 28);
+                            }
+                            ctx.textAlign = 'left';
+                        });
+
+                        // 备注框
+                        if (noteBoxH > 0) {
+                            const ny = curY + 79;
+                            ctx.fillStyle = '#fffbeb';
+                            ctx.strokeStyle = '#fef3c7';
+                            ctx.beginPath();
+                            ctx.roundRect(cardX + 12, ny, cardW - 24, noteBoxH, 5);
+                            ctx.fill();
+                            ctx.stroke();
+
+                            ctx.fillStyle = '#4b5563';
+                            ctx.font = '11px sans-serif';
+                            noteLines.forEach((line, lIdx) => {
+                                ctx.fillText(line, cardX + 18, ny + 15 + lIdx * 16);
+                            });
+                        }
+
+                        ctx.restore();
+                        curY += cardH + matchGap;
+                    });
+
+                    // 5. 最外层卡片描边
+                    ctx.strokeStyle = '#e0e7ff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.roundRect(1, 1, W - 2, totalH - 2, 12);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    shareModal.value.dataUrl = canvas.toDataURL('image/png');
+                    shareModal.value.loading = false;
                 };
 
                 // ================= ECharts Logic =================
@@ -1132,15 +1250,13 @@
                     });
                     statArray.sort((a, b) => b.stats.matchTotal - a.stats.matchTotal);
 
-                    categoriesCount.value = statArray.length;
+                    categoriesCount.value = statArray.length + 2;
 
                     const totalStats = calcStats(recs);
                     const recent20Stats = calcStats(recs.slice(-20));
 
-                    statArray.unshift(
-                        { name: '总计', stats: totalStats },
-                        { name: '最近20场', stats: recent20Stats }
-                    );
+                    statArray.unshift({ name: '最近20场', stats: recent20Stats });
+                    statArray.unshift({ name: '总计', stats: totalStats });
 
                     const displayArray = chartExpanded.value ? statArray : statArray.slice(0, 5);
                     chartHeight.value = displayArray.length * 60 + 40;
@@ -1211,7 +1327,7 @@
                 };
 
                 onMounted(() => {
-                    runMigration();
+                    initApp();
                     nextTick(() => { setTimeout(renderChart, 100); });
                     window.addEventListener('resize', () => myChart && myChart.resize());
                 });
@@ -1227,7 +1343,6 @@
 
                 return { 
                     form, currentRecords, records, statFilter, modal, viewMode, tournamentGroups,
-                    editingRecordId, startEditRecord, cancelEditRecord, getRecordTournamentDate,
                     gamesList, currentGameId, formatsList, currentFormatId, currentFormatsList,
                     isManagerOpen, managerTab, newGameName, newFormatName, editingId, editingName,
                     currentSelectedGameName, currentFormatsListForManager,
@@ -1235,9 +1350,11 @@
                     currentStats, reversedRecords, needG3, g3ReasonText,
                     chartExpanded, chartHeight, categoriesCount, toggleChartExpand,
                     switchGame, switchFormat, openManager, addGame, addFormat, confirmDeleteGame, confirmDeleteFormat,
-                    startEdit, cancelEdit, saveEdit, handleVoidChange, toggleVoid,
+                    startEdit, cancelEdit, saveEdit, toggleVoid,
                     saveRecord, confirmDelete, exportData, importData, getDisplayGames, getMatchResultStyle,
-                    closeModal, executeModalAction, toggleTournamentExpand
+                    closeModal, executeModalAction, toggleTournamentExpand,
+                    isEditing, startEditRecord, cancelEditRecord, editingRecordId,
+                    shareModal, openShareModal, generateShareImage, getRecordTournamentDate
                 }
             }
         }).mount('#app');
