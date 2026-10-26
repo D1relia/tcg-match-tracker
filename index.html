@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TCG 对局/战报记录器 1.08</title>
+    <title>TCG 对局/战报记录器 1.09</title>
     <link rel="manifest" href="manifest.json">
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -474,10 +474,12 @@
                             <button @click="addGame" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">添加</button>
                         </div>
                         <ul class="space-y-2">
-                            <li v-for="game in gamesList" :key="game.id" class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
+                            <li v-for="(game, index) in gamesList" :key="game.id" class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
                                 <template v-if="editingId !== game.id">
                                     <span class="text-sm font-bold text-gray-700 truncate mr-2">{{ game.name }}</span>
-                                    <div class="flex space-x-2 flex-shrink-0">
+                                    <div class="flex space-x-1.5 flex-shrink-0 items-center">
+                                        <button @click="moveGame(index, -1)" :disabled="index === 0" class="text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm" title="上移">▲</button>
+                                        <button @click="moveGame(index, 1)" :disabled="index === gamesList.length - 1" class="text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm" title="下移">▼</button>
                                         <button @click="startEdit(game.id, game.name)" class="text-blue-500 hover:text-blue-700 text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm">编辑</button>
                                         <button @click="confirmDeleteGame(game.id)" class="text-red-400 hover:text-red-600 text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm">删除</button>
                                     </div>
@@ -503,10 +505,12 @@
                             <button @click="addFormat" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">添加</button>
                         </div>
                         <ul class="space-y-2">
-                            <li v-for="format in currentFormatsListForManager" :key="format.id" class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
+                            <li v-for="(format, index) in currentFormatsListForManager" :key="format.id" class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
                                 <template v-if="editingId !== format.id">
                                     <span class="text-sm font-bold text-gray-700 truncate mr-2">{{ format.name }}</span>
-                                    <div class="flex space-x-2 flex-shrink-0">
+                                    <div class="flex space-x-1.5 flex-shrink-0 items-center">
+                                        <button @click="moveFormat(index, -1)" :disabled="index === 0" class="text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm" title="上移">▲</button>
+                                        <button @click="moveFormat(index, 1)" :disabled="index === currentFormatsListForManager.length - 1" class="text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm" title="下移">▼</button>
                                         <button @click="startEdit(format.id, format.name)" class="text-blue-500 hover:text-blue-700 text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm">编辑</button>
                                         <button @click="confirmDeleteFormat(format.id)" class="text-red-400 hover:text-red-600 text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm">删除</button>
                                     </div>
@@ -619,6 +623,32 @@
                         localStorage.setItem('tcg_formats_v4', JSON.stringify(formatsList.value));
                     }
                     cancelEdit();
+                };
+
+                // 游戏与环境上下排序逻辑
+                const moveGame = (index, direction) => {
+                    const targetIndex = index + direction;
+                    if (targetIndex < 0 || targetIndex >= gamesList.value.length) return;
+                    const temp = gamesList.value[index];
+                    gamesList.value[index] = gamesList.value[targetIndex];
+                    gamesList.value[targetIndex] = temp;
+                    localStorage.setItem('tcg_games_v4', JSON.stringify(gamesList.value));
+                };
+
+                const moveFormat = (index, direction) => {
+                    const list = currentFormatsListForManager.value;
+                    const targetIndex = index + direction;
+                    if (targetIndex < 0 || targetIndex >= list.length) return;
+                    const itemA = list[index];
+                    const itemB = list[targetIndex];
+                    const idxA = formatsList.value.findIndex(f => f.id === itemA.id);
+                    const idxB = formatsList.value.findIndex(f => f.id === itemB.id);
+                    if (idxA !== -1 && idxB !== -1) {
+                        const temp = formatsList.value[idxA];
+                        formatsList.value[idxA] = formatsList.value[idxB];
+                        formatsList.value[idxB] = temp;
+                        localStorage.setItem('tcg_formats_v4', JSON.stringify(formatsList.value));
+                    }
                 };
 
                 const switchGame = (gameId) => {
@@ -1350,7 +1380,7 @@
                     currentStats, reversedRecords, needG3, g3ReasonText,
                     chartExpanded, chartHeight, categoriesCount, toggleChartExpand,
                     switchGame, switchFormat, openManager, addGame, addFormat, confirmDeleteGame, confirmDeleteFormat,
-                    startEdit, cancelEdit, saveEdit, toggleVoid,
+                    startEdit, cancelEdit, saveEdit, moveGame, moveFormat, toggleVoid,
                     saveRecord, confirmDelete, exportData, importData, getDisplayGames, getMatchResultStyle,
                     closeModal, executeModalAction, toggleTournamentExpand,
                     isEditing, startEditRecord, cancelEditRecord, editingRecordId,
